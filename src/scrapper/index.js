@@ -1,37 +1,27 @@
-const chromium = require("chrome-aws-lambda");
+const axios = require("axios");
+const cheerio = require("cheerio");
 
 let scrapper = async (url) => {
   try {
-    const executablePath = await chromium.executablePath;
+    return axios.get(url).then((response) => {
+      let html = response.data;
+      const $ = cheerio.load(html);
+      let items = $("item");
 
-    // PUPPETEER_EXECUTABLE_PATH is set from my Dockerfile to /usr/bin/chromium-browser
-    // for development.
-    const browser = await chromium.puppeteer.launch({
-      args: await chromium.args,
-      executablePath: executablePath || process.env.PUPPETEER_EXECUTABLE_PATH,
-      headless: true,
-    });
-
-    const page = await browser.newPage();
-    await page.goto(url);
-    const html = await page.evaluate(() => {
-      let items = document.querySelectorAll("item");
-      return Array.from(items).map((item) => {
-        let img = item.innerHTML.match(/<img[^>]+src="?([^"\s]+)"?[^>]*>/g);
-        let src = img[0].match(/src="([^"]+)"/);
-        // clear title
-        let title = item.querySelector("title").innerHTML;
-        title = title.replace(`<![CDATA[`, "").replace(`]]>`, "");
+      html = Array.from(items).map((item) => {
+        let img = $(item).html().match(/<img[^>]+src="?([^"\s]+)"?[^>]*>/g)[0].match(/src="([^"]+)"/)[1];
+        let title = $(item).find("title").html().replace(`&lt;![CDATA[`, "").replace(`]]&gt;`, "");
+        let link = $(item).text().replace(/(\r\n|\n|\r)/gm, "").replace(/\s+/g, " ").match(/http\S+/g)[0];
         return {
-          title: title,
-          link: item.querySelector("link").innerHTML,
-          img: src[1],
+          title,
+          link,
+          img
         };
       });
+      console.log(html);
+      return html;
     });
 
-    await browser.close();
-    return html;
   } catch (err) {
     console.log(err);
     return [];
