@@ -1,7 +1,9 @@
-const scrapper = require("./scrapper");
-const express = require("express");
+import scrapper from "./scrapper/index.js";
+import express from "express";
+import cache from "express-api-cache";
+import cors from "cors";
 const app = express();
-const cors = require("cors");
+const Cache = cache.cache;
 
 app.use(
   cors({
@@ -12,7 +14,7 @@ app.get("/", (req, res) => {
   res.json({ message: "Hello World!" });
 });
 
-app.get("/scrapper", async (req, res) => {
+app.get("/scrapper", Cache("5 minutes"), async (req, res) => {
   const url = req.query.url;
   let start = new Date().getTime();
   const data = await scrapper(url);
